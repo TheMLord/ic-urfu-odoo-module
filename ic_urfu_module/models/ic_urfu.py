@@ -14,6 +14,7 @@ from pathlib import Path
 import tempfile
 from typing import ClassVar
 
+from markupsafe import Markup, escape
 from odoo import api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
@@ -111,6 +112,15 @@ class Subject(models.Model):
         compute="_compute_zet_from_hours",
         help="Округление ауд. часов к норме из настроек (часов на 1 ЗЭТ).",
     )
+    allowed_semester_ids = fields.Many2many(
+        "ic.urfu.semester.slot",
+        "subject_allowed_semester_rel",
+        "subject_id",
+        "slot_id",
+        string="Доступно в семестрах",
+        help="В каких семестрах эту дисциплину можно ставить в план. "
+        "Если задан шаблон программы, для обязательных дисциплин приоритет имеет шаблон.",
+    )
 
     @api.depends("hours")
     def _compute_zet_from_hours(self):
@@ -203,12 +213,59 @@ class Semester(models.Model):
         help="Сумма ЗЕТ (поле «Объем (зет)» дисциплин) по обязательным и выборным дисциплинам семестра",
     )
 
+    available_mandatory_subject_ids = fields.Many2many(
+        "ic.urfu.subject",
+        "semester_available_mandatory_rel",
+        "semester_id",
+        "subject_id",
+        compute="_compute_available_subjects",
+        compute_sudo=True,
+        string="Доступные обязательные",
+        help="Пул обязательных дисциплин для этого семестра. "
+        "Если у плана выбран шаблон программы — берётся из шаблона, иначе из allowed_semester_ids дисциплин.",
+    )
+    available_elective_subject_ids = fields.Many2many(
+        "ic.urfu.subject",
+        "semester_available_elective_rel",
+        "semester_id",
+        "subject_id",
+        compute="_compute_available_subjects",
+        compute_sudo=True,
+        string="Доступные по выбору",
+        help="Пул выборных дисциплин для этого семестра по allowed_semester_ids.",
+    )
+
     @api.depends("mandatory_subject_ids.credits", "elective_subject_ids.credits")
     def _compute_zet_total(self):
         for sem in self:
             zet = sum(sem.mandatory_subject_ids.mapped("credits"))
             zet += sum(sem.elective_subject_ids.mapped("credits"))
             sem.zet_total = float(zet)
+
+    @api.depends(
+        "number",
+        "plan_id.program_template_id",
+        "plan_id.program_template_id.semester_template_ids.semester_number",
+        "plan_id.program_template_id.semester_template_ids.subject_ids",
+    )
+    def _compute_available_subjects(self):
+        subject_env = self.env["ic.urfu.subject"].sudo()
+        for sem in self:
+            sn = sem.number
+            tmpl = sem.plan_id.program_template_id
+            sem_tmpl = (
+                tmpl.semester_template_ids.filtered(lambda t, n=sn: t.semester_number == n)[:1] if tmpl else False
+            )
+            if sem_tmpl and sem_tmpl.subject_ids:
+                mandatory_pool = sem_tmpl.subject_ids
+            else:
+                mandatory_pool = subject_env.search(
+                    [("subject_type", "=", "mandatory"), ("allowed_semester_ids.number", "=", sn)],
+                )
+            sem.available_mandatory_subject_ids = mandatory_pool
+            sem.available_elective_subject_ids = subject_env.search(
+                [("subject_type", "=", "elective"), ("allowed_semester_ids.number", "=", sn)],
+            )
 
     @api.constrains("number")
     def _check_semester_number(self):
@@ -344,6 +401,13 @@ class IndividualPlan(models.Model):
         tracking=True,
     )
 
+    plan_summary_html = fields.Html(
+        string="Сводная таблица",
+        compute="_compute_plan_summary_html",
+        sanitize=False,
+        help="HTML-сводка плана по семестрам: дисциплины, часы, ЗЕТ, итоги.",
+    )
+
     # Генерация документа
     document_file = fields.Binary("Сгенерированный документ", attachment=True)
     document_filename = fields.Char("Имя файла")
@@ -352,6 +416,76 @@ class IndividualPlan(models.Model):
     def _compute_total_zet(self):
         for plan in self:
             plan.total_zet = sum(plan.semester_ids.mapped("zet_total"))
+
+    @api.depends(
+        "semester_ids.number",
+        "semester_ids.academic_year",
+        "semester_ids.mandatory_subject_ids",
+        "semester_ids.elective_subject_ids",
+        "semester_ids.zet_total",
+        "total_zet",
+    )
+    def _compute_plan_summary_html(self):
+        """Собрать HTML-таблицу плана: по семестрам, со столбцами «№/Дисциплина/Тип/Часы/ЗЕТ/Форма»."""
+        control_map = constants.CONTROL_FORM_MAPPING
+        head = Markup(
+            "<thead><tr>"
+            "<th>№</th><th>Дисциплина</th><th>Тип</th>"
+            '<th class="text-end">Часы</th><th class="text-end">ЗЕТ</th>'
+            "<th>Форма аттестации</th>"
+            "</tr></thead>",
+        )
+        for plan in self:
+            if not plan.semester_ids:
+                plan.plan_summary_html = Markup('<div class="alert alert-info">Семестры не добавлены.</div>')
+                continue
+            sections: list[Markup] = []
+            for sem in plan.semester_ids.sorted("number"):
+                sem_title = escape(f"{sem.number} семестр ({sem.academic_year or ''})")
+                line = [(s, "mandatory") for s in sem.mandatory_subject_ids] + [
+                    (s, "elective") for s in sem.elective_subject_ids
+                ]
+                rows: list[Markup] = []
+                for idx, (subj, kind) in enumerate(line, start=1):
+                    kind_label = "Обязательная" if kind == "mandatory" else "По выбору"
+                    kind_badge_cls = "badge text-bg-primary" if kind == "mandatory" else "badge text-bg-info"
+                    rows.append(
+                        Markup(
+                            "<tr><td>{idx}</td><td>{name}</td>"
+                            '<td><span class="{cls}">{kind}</span></td>'
+                            '<td class="text-end">{hours}</td>'
+                            '<td class="text-end">{credits}</td><td>{control}</td></tr>',
+                        ).format(
+                            idx=idx,
+                            name=escape(subj.name or ""),
+                            cls=kind_badge_cls,
+                            kind=escape(kind_label),
+                            hours=int(subj.hours or 0),
+                            credits=int(subj.credits or 0),
+                            control=escape(control_map.get(subj.control, subj.control or "")),
+                        ),
+                    )
+                if not rows:
+                    rows.append(
+                        Markup('<tr><td colspan="6" class="text-muted fst-italic">Нет дисциплин</td></tr>'),
+                    )
+                subtotal = Markup(
+                    '<tr class="table-secondary fw-bold">'
+                    '<td colspan="4" class="text-end">Итого за семестр:</td>'
+                    '<td class="text-end">{zet:g}</td><td></td></tr>',
+                ).format(zet=sem.zet_total or 0)
+                sections.append(
+                    Markup(
+                        '<h4 class="mt-3">{title}</h4>'
+                        '<table class="table table-sm table-bordered">{head}<tbody>{rows}{subtotal}</tbody></table>',
+                    ).format(title=sem_title, head=head, rows=Markup("").join(rows), subtotal=subtotal),
+                )
+
+            total_block = Markup(
+                '<div class="alert alert-primary mt-3 fw-bold">Всего ЗЕТ по плану: {total:g}</div>',
+            ).format(total=plan.total_zet or 0)
+
+            plan.plan_summary_html = Markup("").join(sections) + total_block
 
     @api.depends("student_name", "program")
     def _compute_name(self):
@@ -943,3 +1077,33 @@ class SemesterTemplate(models.Model):
             "В шаблоне программы уже задан этот номер семестра!",
         )
     ]
+
+
+class SemesterSlot(models.Model):
+    """Справочник «слотов» номера семестра (1..8).
+
+    Используется для свойства дисциплины «в каких семестрах её можно ставить в план»
+    (ic.urfu.subject.allowed_semester_ids). Записи seedятся через data/semester_slots.xml.
+    """
+
+    _name = "ic.urfu.semester.slot"
+    _description = "Семестр (справочник номеров)"
+    _order = "number"
+
+    number = fields.Integer("Номер семестра", required=True)
+    name = fields.Char("Название", compute="_compute_name", store=True)
+
+    _sql_constraints: ClassVar[list[tuple[str, str, str]]] = [
+        ("number_uniq", "unique(number)", "Слот семестра с таким номером уже существует!"),
+    ]
+
+    @api.depends("number")
+    def _compute_name(self):
+        for rec in self:
+            rec.name = f"{rec.number} семестр" if rec.number else ""
+
+    @api.constrains("number")
+    def _check_number_range(self):
+        for rec in self:
+            if rec.number < 1 or rec.number > 8:
+                raise ValidationError("Номер семестра должен быть от 1 до 8.")

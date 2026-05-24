@@ -15,6 +15,7 @@
                 <field name="hours"/>
                 <field name="credits"/>
                 <field name="control" widget="badge"/>
+                <field name="allowed_semester_ids" widget="many2many_tags" optional="show"/>
             </tree>
         </field>
     </record>
@@ -53,6 +54,11 @@
                             </div>
                             <field name="zet_from_hours" readonly="1"/>
                         </group>
+                    </group>
+                    <group string="Доступность по семестрам" name="availability">
+                        <field name="allowed_semester_ids" widget="many2many_tags"
+                               options="{'no_create': True, 'no_create_edit': True}"
+                               nolabel="1"/>
                     </group>
                 </sheet>
             </form>
@@ -333,9 +339,13 @@
                                     <field name="number" widget="integer" readonly="0" force_save="1" required="1"/>
                                     <field name="academic_year" readonly="0"/>
                                     <field name="zet_total" readonly="1" optional="show"/>
+                                    <field name="available_mandatory_subject_ids" column_invisible="1"/>
+                                    <field name="available_elective_subject_ids" column_invisible="1"/>
                                     <field name="mandatory_subject_ids" widget="many2many_tags"
+                                           domain="[('id', 'in', available_mandatory_subject_ids)]"
                                            options="{'color_field': 'subject_type', 'no_create': True}"/>
                                     <field name="elective_subject_ids" widget="many2many_tags"
+                                           domain="[('id', 'in', available_elective_subject_ids)]"
                                            options="{'color_field': 'subject_type', 'no_create': True}"/>
                                 </tree>
                                 <form string="Семестр">
@@ -350,8 +360,12 @@
                                             <field name="academic_year"/>
                                         </group>
 
+                                        <field name="available_mandatory_subject_ids" invisible="1"/>
+                                        <field name="available_elective_subject_ids" invisible="1"/>
                                         <separator string="Обязательные дисциплины" icon="fa-book"/>
-                                        <field name="mandatory_subject_ids" nolabel="1">
+                                        <field name="mandatory_subject_ids" nolabel="1"
+                                               domain="[('id', 'in', available_mandatory_subject_ids)]"
+                                               options="{'no_create': True}">
                                             <kanban class="o_kanban_mobile">
                                                 <field name="name"/>
                                                 <field name="hours"/>
@@ -381,7 +395,9 @@
                                         </field>
 
                                         <separator string="Дисциплины по выбору" icon="fa-list-ul"/>
-                                        <field name="elective_subject_ids" nolabel="1">
+                                        <field name="elective_subject_ids" nolabel="1"
+                                               domain="[('id', 'in', available_elective_subject_ids)]"
+                                               options="{'no_create': True}">
                                             <kanban class="o_kanban_mobile">
                                                 <field name="name"/>
                                                 <field name="hours"/>
@@ -416,6 +432,10 @@
                                     </sheet>
                                 </form>
                             </field>
+                        </page>
+
+                        <page string="Сводная таблица" name="summary" icon="fa-table">
+                            <field name="plan_summary_html" nolabel="1" readonly="1"/>
                         </page>
 
                         <page string="Сгенерированный документ" name="document" icon="fa-file-word-o"

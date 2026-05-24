@@ -3,7 +3,7 @@
 {
     "name": "IC UrFU Module",
     "summary": "Individual education plan generator for UrFU",
-    "version": "17.0.1.0.7",
+    "version": "17.0.1.1.0",
     "development_status": "Beta",
     "category": "Education",
     "website": "-",
@@ -20,6 +20,7 @@
     "data": [
         "security/ic_urfu_security.xml",
         "security/ir.model.access.csv",
+        "data/semester_slots.xml",
         "data/demo_users.xml",
         "views/ic_urfu_views.xml",
         "views/ic_urfu_config_views.xml",
