@@ -79,7 +79,7 @@ unfixable = [
 ]
 
 [lint.isort]
-known-first-party = ["ic_urfu_module", "app"]
+known-first-party = ["ic_urfu_module"]
 force-sort-within-sections = true
 
 [lint.mccabe]
@@ -98,18 +98,14 @@ extend-immutable-calls = [
 ban-relative-imports = "parents" # запрет на ../../ импорты
 
 [lint.per-file-ignores]
+"**/__manifest__.py" = [
+    "B018", # Odoo manifest — это bare dict literal на верхнем уровне
+]
 "tests/**/*.py" = [
     "S101",   # assert — основа pytest
     "ARG",    # fixture аргументы могут быть "неиспользуемыми"
     "SLF001", # тесты могут проверять приватные атрибуты
     "PT",     # гибкость стиля внутри тестов
-]
-"app/data/migrations/**/*.py" = [
-    "N999",   # Alembic генерирует имена файлов с датой
-    "ARG001", # `op` и `sa` — стандартные alembic аргументы
-]
-"app/core/config.py" = [
-    "S105", # Pydantic Settings — не хардкод, а defaults
 ]
 "scripts/**/*.py" = ["T201"]
 

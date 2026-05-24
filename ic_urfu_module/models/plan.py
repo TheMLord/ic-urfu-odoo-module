@@ -1,12 +1,7 @@
-"""Individual Education Plan models for UrFU.
+"""Индивидуальный учебный план магистранта.
 
-This module contains models for managing individual education plans
-for master's students at Ural Federal University (UrFU).
-
-Models:
-    - Subject: Course/discipline definitions with hours, credits, and control form
-    - Semester: Study semester with assigned mandatory and elective subjects
-    - IndividualPlan: Complete education plan with workflow and document generation
+Главная агрегатная модель: workflow draft→submitted→approved/rejected→generated,
+валидация ЗЕТ-нагрузки, применение шаблона программы, сводка плана и генерация DOCX.
 """
 
 import base64
@@ -14,298 +9,16 @@ from pathlib import Path
 import tempfile
 from typing import ClassVar
 
-from markupsafe import Markup, escape
 from odoo import api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
-# Import constants and document generator
 from .. import constants
+from ._helpers import _config_param_truthy, _expected_zet_from_hours
 
 try:
     from ..doc_generator import create_urfu_plan
 except ImportError:
     create_urfu_plan = None
-
-
-def _expected_zet_from_hours(hours: int, hours_per_zet: int) -> int:
-    """Ожидаемое целое ЗЕТ по объёму аудиторных часов и норме «часов на 1 ЗЕТ»."""
-    if hours_per_zet <= 0 or hours <= 0:
-        return 0
-    raw = int(round(hours / float(hours_per_zet)))
-    return max(constants.MIN_CREDITS, min(constants.MAX_CREDITS, raw))
-
-
-def _config_param_truthy(env, key: str, default: bool = True) -> bool:
-    raw = env["ir.config_parameter"].sudo().get_param(key)
-    if raw is None or raw == "":
-        return default
-    return str(raw).lower() in ("1", "true", "yes", "on")
-
-
-class Subject(models.Model):
-    """Course/Discipline model.
-
-    Represents an academic course with its workload parameters.
-    Subjects can be mandatory or elective, and are assigned to semesters
-    within an individual education plan.
-
-    Fields:
-        name: Course name (unique)
-        hours: Auditorium work hours
-        credits: Credit units (ЗЕТ)
-        control: Assessment form (exam, credit, graded credit)
-        subject_type: Type (mandatory or elective)
-    """
-
-    _name = "ic.urfu.subject"
-    _description = "Subject/Course"
-    _order = "name"
-
-    name = fields.Char("Наименование дисциплины", required=True)
-    hours = fields.Integer(
-        "Объем аудит. работы, час",
-        default=lambda self: int(
-            self.env["ir.config_parameter"].sudo().get_param("ic_urfu.default_hours", constants.DEFAULT_HOURS)
-        ),
-    )
-    credits = fields.Integer(
-        "Объем (зет)",
-        default=lambda self: int(
-            self.env["ir.config_parameter"].sudo().get_param("ic_urfu.default_credits", constants.DEFAULT_CREDITS)
-        ),
-    )
-    control = fields.Selection(
-        [
-            ("exam", "Экзамен"),
-            ("credit", "Зачет"),
-            ("credit_grade", "Зачет с оценкой"),
-        ],
-        string="Форма аттестации",
-        default=lambda self: (
-            self.env["ir.config_parameter"]
-            .sudo()
-            .get_param("ic_urfu.default_control_form", constants.DEFAULT_CONTROL_FORM)
-        ),
-    )
-    subject_type = fields.Selection(
-        [
-            ("mandatory", "Обязательная"),
-            ("elective", "По выбору"),
-        ],
-        string="Тип дисциплины",
-        default="mandatory",
-    )
-
-    is_modular = fields.Boolean(
-        string="Модульный спецкурс",
-        default=False,
-        help="Цепочка частей курса: следующая часть подставляется в следующий семестр командой на плане.",
-    )
-    next_module_id = fields.Many2one(
-        "ic.urfu.subject",
-        string="Следующая часть модуля",
-        ondelete="set null",
-        domain="[('subject_type', '=', 'elective'), ('id', '!=', id)]",
-    )
-    zet_from_hours = fields.Integer(
-        string="ЗЕТ по норме часов",
-        compute="_compute_zet_from_hours",
-        help="Округление ауд. часов к норме из настроек (часов на 1 ЗЭТ).",
-    )
-    allowed_semester_ids = fields.Many2many(
-        "ic.urfu.semester.slot",
-        "subject_allowed_semester_rel",
-        "subject_id",
-        "slot_id",
-        string="Доступно в семестрах",
-        help="В каких семестрах эту дисциплину можно ставить в план. "
-        "Если задан шаблон программы, для обязательных дисциплин приоритет имеет шаблон.",
-    )
-
-    @api.depends("hours")
-    def _compute_zet_from_hours(self):
-        icp = self.env["ir.config_parameter"].sudo()
-        hpp = int(icp.get_param("ic_urfu.hours_per_zet", constants.DEFAULT_HOURS_PER_ZET))
-        for rec in self:
-            rec.zet_from_hours = _expected_zet_from_hours(rec.hours, hpp)
-
-    @api.constrains("hours", "credits")
-    def _check_positive_values(self):
-        """Validate that hours and credits are positive.
-
-        Ensures that both auditorium hours and credit units are greater than zero.
-
-        Raises:
-            ValidationError: If hours or credits are less than or equal to zero.
-        """
-        for record in self:
-            if record.hours <= 0:
-                raise ValidationError("Объем аудиторной работы должен быть больше 0!")
-            if record.credits <= 0:
-                raise ValidationError("Объем (ЗЕТ) должен быть больше 0!")
-
-    _sql_constraints: ClassVar[list[tuple[str, str, str]]] = [
-        ("name_unique", "unique(name)", "Дисциплина с таким названием уже существует!")
-    ]
-
-    @api.constrains("is_modular", "next_module_id", "subject_type")
-    def _check_modular_chain(self):
-        for rec in self:
-            if rec.next_module_id:
-                if not rec.is_modular:
-                    raise ValidationError(
-                        "Укажите флаг «Модульный спецкурс», если задана следующая часть модуля."
-                    )
-                if rec.next_module_id.id == rec.id:
-                    raise ValidationError("Дисциплина не может ссылаться на себя как на следующую часть модуля.")
-                if rec.next_module_id.subject_type != "elective":
-                    raise ValidationError("Следующая часть модуля должна быть дисциплиной «По выбору».")
-            if rec.is_modular and rec.subject_type != "elective":
-                raise ValidationError("Модульный спецкурс может быть только дисциплиной по выбору.")
-
-
-class Semester(models.Model):
-    """Study Semester model.
-
-    Represents a semester within an individual education plan.
-    Contains mandatory and elective subjects for that semester.
-
-    Fields:
-        name: Computed name (number + academic year)
-        number: Semester number (1-8)
-        academic_year: Academic year string (e.g., "2025 / 2026")
-        plan_id: Reference to parent individual plan
-        mandatory_subject_ids: Mandatory subjects for this semester
-        elective_subject_ids: Elective subjects for this semester
-    """
-
-    _name = "ic.urfu.semester"
-    _description = "Study Semester"
-    _order = "number"
-
-    name = fields.Char("Название", compute="_compute_name", store=False)
-    number = fields.Integer("Номер семестра", required=True)
-    academic_year = fields.Char("Учебный год", required=True, default="2025 / 2026")
-    plan_id = fields.Many2one("ic.urfu.plan", string="Индивидуальный план", ondelete="cascade")
-
-    # Дисциплины
-    mandatory_subject_ids = fields.Many2many(
-        "ic.urfu.subject",
-        "semester_mandatory_subject_rel",
-        "semester_id",
-        "subject_id",
-        string="Обязательные дисциплины",
-        domain=[("subject_type", "=", "mandatory")],
-    )
-    elective_subject_ids = fields.Many2many(
-        "ic.urfu.subject",
-        "semester_elective_subject_rel",
-        "semester_id",
-        "subject_id",
-        string="Дисциплины по выбору",
-        domain=[("subject_type", "=", "elective")],
-    )
-
-    zet_total = fields.Float(
-        string="Итого ЗЕТ",
-        compute="_compute_zet_total",
-        store=True,
-        help="Сумма ЗЕТ (поле «Объем (зет)» дисциплин) по обязательным и выборным дисциплинам семестра",
-    )
-
-    available_mandatory_subject_ids = fields.Many2many(
-        "ic.urfu.subject",
-        "semester_available_mandatory_rel",
-        "semester_id",
-        "subject_id",
-        compute="_compute_available_subjects",
-        compute_sudo=True,
-        string="Доступные обязательные",
-        help="Пул обязательных дисциплин для этого семестра. "
-        "Если у плана выбран шаблон программы — берётся из шаблона, иначе из allowed_semester_ids дисциплин.",
-    )
-    available_elective_subject_ids = fields.Many2many(
-        "ic.urfu.subject",
-        "semester_available_elective_rel",
-        "semester_id",
-        "subject_id",
-        compute="_compute_available_subjects",
-        compute_sudo=True,
-        string="Доступные по выбору",
-        help="Пул выборных дисциплин для этого семестра по allowed_semester_ids.",
-    )
-
-    @api.depends("mandatory_subject_ids.credits", "elective_subject_ids.credits")
-    def _compute_zet_total(self):
-        for sem in self:
-            zet = sum(sem.mandatory_subject_ids.mapped("credits"))
-            zet += sum(sem.elective_subject_ids.mapped("credits"))
-            sem.zet_total = float(zet)
-
-    @api.depends(
-        "number",
-        "plan_id.program_template_id",
-        "plan_id.program_template_id.semester_template_ids.semester_number",
-        "plan_id.program_template_id.semester_template_ids.subject_ids",
-    )
-    def _compute_available_subjects(self):
-        subject_env = self.env["ic.urfu.subject"].sudo()
-        for sem in self:
-            sn = sem.number
-            tmpl = sem.plan_id.program_template_id
-            sem_tmpl = (
-                tmpl.semester_template_ids.filtered(lambda t, n=sn: t.semester_number == n)[:1] if tmpl else False
-            )
-            if sem_tmpl and sem_tmpl.subject_ids:
-                mandatory_pool = sem_tmpl.subject_ids
-            else:
-                mandatory_pool = subject_env.search(
-                    [("subject_type", "=", "mandatory"), ("allowed_semester_ids.number", "=", sn)],
-                )
-            sem.available_mandatory_subject_ids = mandatory_pool
-            sem.available_elective_subject_ids = subject_env.search(
-                [("subject_type", "=", "elective"), ("allowed_semester_ids.number", "=", sn)],
-            )
-
-    @api.constrains("number")
-    def _check_semester_number(self):
-        """Validate semester number is within valid range.
-
-        Master's programs at UrFU typically span 1-8 semesters.
-
-        Raises:
-            ValidationError: If semester number is not between 1 and 8.
-        """
-        for record in self:
-            if record.number <= 0 or record.number > 8:
-                raise ValidationError("Номер семестра должен быть от 1 до 8!")
-
-    @api.constrains("plan_id", "number")
-    def _check_unique_semester_number(self):
-        """Validate semester number is unique within the plan.
-
-        Each individual plan can have only one semester with a given number.
-
-        Raises:
-            ValidationError: If another semester with the same number exists in this plan.
-        """
-        for record in self:
-            if record.plan_id:
-                duplicate = self.search(
-                    [("plan_id", "=", record.plan_id.id), ("number", "=", record.number), ("id", "!=", record.id)]
-                )
-                if duplicate:
-                    raise ValidationError(f"Семестр {record.number} уже существует в этом плане!")
-
-    @api.depends("number", "academic_year")
-    def _compute_name(self):
-        """Compute semester display name.
-
-        Generates a human-readable name combining semester number and academic year.
-        Example: "1 семестр (2025 / 2026)"
-        """
-        for record in self:
-            record.name = f"{record.number} семестр ({record.academic_year})"
 
 
 class IndividualPlan(models.Model):
@@ -350,7 +63,12 @@ class IndividualPlan(models.Model):
 
     # Роли и ответственные
     student_id = fields.Many2one(
-        "res.users", string="Студент", required=True, default=lambda self: self.env.user, tracking=True, readonly=True
+        "res.users",
+        string="Студент",
+        required=True,
+        default=lambda self: self.env.user,
+        tracking=True,
+        readonly=True,
     )
     teacher_id = fields.Many2one(
         "res.users",
@@ -426,66 +144,14 @@ class IndividualPlan(models.Model):
         "total_zet",
     )
     def _compute_plan_summary_html(self):
-        """Собрать HTML-таблицу плана: по семестрам, со столбцами «№/Дисциплина/Тип/Часы/ЗЕТ/Форма»."""
-        control_map = constants.CONTROL_FORM_MAPPING
-        head = Markup(
-            "<thead><tr>"
-            "<th>№</th><th>Дисциплина</th><th>Тип</th>"
-            '<th class="text-end">Часы</th><th class="text-end">ЗЕТ</th>'
-            "<th>Форма аттестации</th>"
-            "</tr></thead>",
-        )
+        """Сводка плана: рендер через QWeb-шаблон ic_urfu_module.plan_summary."""
+        qweb = self.env["ir.qweb"].sudo()
         for plan in self:
-            if not plan.semester_ids:
-                plan.plan_summary_html = Markup('<div class="alert alert-info">Семестры не добавлены.</div>')
-                continue
-            sections: list[Markup] = []
-            for sem in plan.semester_ids.sorted("number"):
-                sem_title = escape(f"{sem.number} семестр ({sem.academic_year or ''})")
-                line = [(s, "mandatory") for s in sem.mandatory_subject_ids] + [
-                    (s, "elective") for s in sem.elective_subject_ids
-                ]
-                rows: list[Markup] = []
-                for idx, (subj, kind) in enumerate(line, start=1):
-                    kind_label = "Обязательная" if kind == "mandatory" else "По выбору"
-                    kind_badge_cls = "badge text-bg-primary" if kind == "mandatory" else "badge text-bg-info"
-                    rows.append(
-                        Markup(
-                            "<tr><td>{idx}</td><td>{name}</td>"
-                            '<td><span class="{cls}">{kind}</span></td>'
-                            '<td class="text-end">{hours}</td>'
-                            '<td class="text-end">{credits}</td><td>{control}</td></tr>',
-                        ).format(
-                            idx=idx,
-                            name=escape(subj.name or ""),
-                            cls=kind_badge_cls,
-                            kind=escape(kind_label),
-                            hours=int(subj.hours or 0),
-                            credits=int(subj.credits or 0),
-                            control=escape(control_map.get(subj.control, subj.control or "")),
-                        ),
-                    )
-                if not rows:
-                    rows.append(
-                        Markup('<tr><td colspan="6" class="text-muted fst-italic">Нет дисциплин</td></tr>'),
-                    )
-                subtotal = Markup(
-                    '<tr class="table-secondary fw-bold">'
-                    '<td colspan="4" class="text-end">Итого за семестр:</td>'
-                    '<td class="text-end">{zet:g}</td><td></td></tr>',
-                ).format(zet=sem.zet_total or 0)
-                sections.append(
-                    Markup(
-                        '<h4 class="mt-3">{title}</h4>'
-                        '<table class="table table-sm table-bordered">{head}<tbody>{rows}{subtotal}</tbody></table>',
-                    ).format(title=sem_title, head=head, rows=Markup("").join(rows), subtotal=subtotal),
-                )
-
-            total_block = Markup(
-                '<div class="alert alert-primary mt-3 fw-bold">Всего ЗЕТ по плану: {total:g}</div>',
-            ).format(total=plan.total_zet or 0)
-
-            plan.plan_summary_html = Markup("").join(sections) + total_block
+            # ir.qweb._render возвращает уже-экранированный markupsafe.Markup, доп. обёртка не нужна.
+            plan.plan_summary_html = qweb._render(  # noqa: SLF001 — публичный Odoo API для рендера QWeb
+                "ic_urfu_module.plan_summary",
+                {"doc": plan, "control_map": constants.CONTROL_FORM_MAPPING},
+            )
 
     @api.depends("student_name", "program")
     def _compute_name(self):
@@ -528,7 +194,7 @@ class IndividualPlan(models.Model):
                 "warning": {
                     "title": "Шаблон выбран",
                     "message": 'Нажмите "Применить шаблон" чтобы предзаполнить обязательные дисциплины.',
-                }
+                },
             }
         return None
 
@@ -540,7 +206,12 @@ class IndividualPlan(models.Model):
         return any((st.min_zet or 0) > 0 for st in tmpl.semester_template_ids)
 
     def _zet_semester_line_errors(
-        self, sem, tmpl, use_template_zet: bool, min_zet_global: int, max_zet_global: int
+        self,
+        sem,
+        tmpl,
+        use_template_zet: bool,
+        min_zet_global: int,
+        max_zet_global: int,
     ) -> list[str]:
         """Проверка суммы ЗЕТ в семестре: пустые семестры, максимум, минимум (шаблон или глобальный)."""
         errors: list[str] = []
@@ -554,7 +225,7 @@ class IndividualPlan(models.Model):
 
         if zet_val > max_zet_global:
             errors.append(
-                f"Семестр {sn}: {zet_val:g} ЗЕТ — больше допустимого максимума {max_zet_global} ЗЕТ за семестр."
+                f"Семестр {sn}: {zet_val:g} ЗЕТ — больше допустимого максимума {max_zet_global} ЗЕТ за семестр.",
             )
 
         if tmpl:
@@ -563,21 +234,18 @@ class IndividualPlan(models.Model):
             sem_tmpl = self.env["ic.urfu.semester.template"].browse()
         min_template = int(sem_tmpl.min_zet or 0) if sem_tmpl else 0
 
-        if use_template_zet and min_template > 0:
-            min_need = min_template
-        else:
-            min_need = min_zet_global
+        min_need = min_template if use_template_zet and min_template > 0 else min_zet_global
 
         if zet_val < min_need:
             if use_template_zet and min_template > 0:
                 errors.append(
                     f"Семестр {sn}: {zet_val:g} ЗЕТ; по программе «{tmpl.name}» в этом семестре "
-                    f"нужно не менее {min_need} ЗЕТ."
+                    f"нужно не менее {min_need} ЗЕТ.",
                 )
             else:
                 errors.append(
                     f"Семестр {sn}: {zet_val:g} ЗЕТ (требуется не менее {min_need}, "
-                    f"не больше {max_zet_global})."
+                    f"не больше {max_zet_global}).",
                 )
         return errors
 
@@ -602,7 +270,7 @@ class IndividualPlan(models.Model):
                     tol_note = f" (допуск ±{tol} ЗЕТ)" if tol else ""
                     errors.append(
                         f"{subj.name} (семестр {sem.number}): указано {subj.credits} ЗЕТ при {subj.hours} ч; "
-                        f"по норме {hpp} ч/ЗЕТ ожидается ~{expected}{tol_note}."
+                        f"по норме {hpp} ч/ЗЕТ ожидается ~{expected}{tol_note}.",
                     )
         return errors
 
@@ -631,7 +299,7 @@ class IndividualPlan(models.Model):
             sn = sem.number
             subjects = sem.mandatory_subject_ids | sem.elective_subject_ids
             total_hours = sum(subjects.mapped("hours"))
-            weekly = total_hours / 18.0  # 18 недель в семестре
+            weekly = total_hours / float(constants.WEEKS_PER_SEMESTER)
             if weekly > max_weekly:
                 warnings.append(f"Семестр {sn}: ~{weekly:.1f} ч/нед (рекомендуется не более {max_weekly})")
             errors.extend(self._zet_semester_line_errors(sem, tmpl, use_template_zet, min_zet_global, max_zet_global))
@@ -642,7 +310,7 @@ class IndividualPlan(models.Model):
             if (tmpl.min_total_zet or 0) > 0 and plan_total < tmpl.min_total_zet:
                 errors.append(
                     f"Всего по плану {plan_total:g} ЗЕТ; для программы «{tmpl.name}» "
-                    f"нужно набрать не менее {tmpl.min_total_zet} ЗЕТ."
+                    f"нужно набрать не менее {tmpl.min_total_zet} ЗЕТ.",
                 )
             for st in tmpl.semester_template_ids:
                 if (st.min_zet or 0) <= 0:
@@ -650,9 +318,9 @@ class IndividualPlan(models.Model):
                 sn_req = st.semester_number
                 if not self.semester_ids.filtered(lambda s, n=sn_req: s.number == n):
                     errors.append(
-                        f"В плане нет семестра {sn_req}; по программе для него задано минимум {st.min_zet} ЗЕТ."
+                        f"В плане нет семестра {sn_req}; по программе для него задано минимум {st.min_zet} ЗЕТ.",
                     )
-        elif abs(plan_total - float(total_norm_global)) > 5:
+        elif abs(plan_total - float(total_norm_global)) > constants.PLAN_TOTAL_ZET_TOLERANCE:
             warnings.append(f"Итого по плану: {plan_total:g} ЗЕТ (норма {total_norm_global} ЗЕТ)")
 
         if errors:
@@ -684,7 +352,7 @@ class IndividualPlan(models.Model):
                         "number": sem_tmpl.semester_number,
                         "academic_year": default_year,
                         "mandatory_subject_ids": [(6, 0, sem_tmpl.subject_ids.ids)],
-                    }
+                    },
                 )
 
         # Один ответ = одна транзакция без цепочки next (иначе гонка с bus/WebSocket → SerializationFailure).
@@ -853,7 +521,7 @@ class IndividualPlan(models.Model):
         }
 
     def action_draft(self):
-        """Вернуть в черновик"""
+        """Вернуть в черновик."""
         self.write({"state": "draft", "teacher_comment": False, "rejection_comment": False})
 
     def unlink(self):
@@ -870,7 +538,7 @@ class IndividualPlan(models.Model):
                 state_label = dict(plan._fields["state"].selection).get(plan.state, plan.state)
                 raise UserError(
                     f"Невозможно удалить план '{plan.name}' в статусе '{state_label}'.\n"
-                    f"Удалять можно только черновики и отклонённые планы."
+                    f"Удалять можно только черновики и отклонённые планы.",
                 )
         return super().unlink()
 
@@ -898,7 +566,7 @@ class IndividualPlan(models.Model):
         return errors
 
     def action_generate_document(self):
-        """Генерация документа DOCX"""
+        """Генерация документа DOCX."""
         self.ensure_one()
 
         if self.state != "approved":
@@ -946,7 +614,7 @@ class IndividualPlan(models.Model):
                 "document_file": base64.b64encode(document_data),
                 "document_filename": filename,
                 "state": "generated",
-            }
+            },
         )
 
         # Открываем форму для скачивания
@@ -959,7 +627,7 @@ class IndividualPlan(models.Model):
         }
 
     def _prepare_document_data(self):
-        """Подготовка данных для генератора документов"""
+        """Подготовка данных для генератора документов."""
         self.ensure_one()
 
         # Маппинг форм контроля
@@ -993,7 +661,7 @@ class IndividualPlan(models.Model):
                     "academic_year": semester.academic_year,
                     "mandatory_subjects": mandatory_subjects,
                     "elective_subjects": elective_subjects,
-                }
+                },
             )
 
         return {
@@ -1011,99 +679,3 @@ class IndividualPlan(models.Model):
             "deadline": self.deadline,
             "semesters": semesters_data,
         }
-
-
-class ProgramTemplate(models.Model):
-    """Шаблон образовательной программы (направление + набор обязательных дисциплин по семестрам)."""
-
-    _name = "ic.urfu.program.template"
-    _description = "Шаблон образовательной программы"
-    _order = "code, name"
-
-    name = fields.Char("Название программы", required=True)
-    code = fields.Char("Код направления")
-    min_total_zet = fields.Integer(
-        string="Мин. ЗЕТ за программу (всего)",
-        default=0,
-        help="Сумма ЗЕТ по всем семестрам плана не должна быть меньше этого значения. "
-        "0 — не задавать минимум по программе (только по семестрам или глобальные лимиты).",
-    )
-    semester_template_ids = fields.One2many(
-        "ic.urfu.semester.template",
-        "program_id",
-        string="Семестры шаблона",
-    )
-
-
-class SemesterTemplate(models.Model):
-    """Строка шаблона: номер семестра и обязательные дисциплины."""
-
-    _name = "ic.urfu.semester.template"
-    _description = "Шаблон семестра для программы"
-    _order = "semester_number"
-
-    program_id = fields.Many2one(
-        "ic.urfu.program.template",
-        string="Программа",
-        required=True,
-        ondelete="cascade",
-    )
-    semester_number = fields.Integer("Номер семестра", required=True)
-    min_zet = fields.Integer(
-        string="Мин. ЗЕТ в семестре",
-        default=0,
-        help="Минимум суммы ЗЕТ по дисциплинам этого семестра в индивидуальном плане. "
-        "0 — не требовать отдельный минимум для этого семестра.",
-    )
-    subject_ids = fields.Many2many(
-        "ic.urfu.subject",
-        "semester_template_subject_rel",
-        "semester_template_id",
-        "subject_id",
-        string="Обязательные дисциплины шаблона",
-        domain=[("subject_type", "=", "mandatory")],
-    )
-
-    @api.constrains("semester_number")
-    def _check_semester_number_template(self):
-        for rec in self:
-            if rec.semester_number < 1 or rec.semester_number > 8:
-                raise ValidationError("Номер семестра в шаблоне должен быть от 1 до 8!")
-
-    _sql_constraints: ClassVar[list[tuple[str, str, str]]] = [
-        (
-            "program_template_semester_uniq",
-            "unique(program_id, semester_number)",
-            "В шаблоне программы уже задан этот номер семестра!",
-        )
-    ]
-
-
-class SemesterSlot(models.Model):
-    """Справочник «слотов» номера семестра (1..8).
-
-    Используется для свойства дисциплины «в каких семестрах её можно ставить в план»
-    (ic.urfu.subject.allowed_semester_ids). Записи seedятся через data/semester_slots.xml.
-    """
-
-    _name = "ic.urfu.semester.slot"
-    _description = "Семестр (справочник номеров)"
-    _order = "number"
-
-    number = fields.Integer("Номер семестра", required=True)
-    name = fields.Char("Название", compute="_compute_name", store=True)
-
-    _sql_constraints: ClassVar[list[tuple[str, str, str]]] = [
-        ("number_uniq", "unique(number)", "Слот семестра с таким номером уже существует!"),
-    ]
-
-    @api.depends("number")
-    def _compute_name(self):
-        for rec in self:
-            rec.name = f"{rec.number} семестр" if rec.number else ""
-
-    @api.constrains("number")
-    def _check_number_range(self):
-        for rec in self:
-            if rec.number < 1 or rec.number > 8:
-                raise ValidationError("Номер семестра должен быть от 1 до 8.")

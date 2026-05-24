@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        QWeb-шаблон сводной таблицы плана (ic.urfu.plan.plan_summary_html).
+        Контекст рендера: doc (запись ic.urfu.plan), control_map (constants.CONTROL_FORM_MAPPING).
+    -->
+    <template id="plan_summary" name="IC UrFU Plan Summary">
+        <t t-if="not doc.semester_ids">
+            <div class="alert alert-info">Семестры не добавлены.</div>
+        </t>
+        <t t-else="">
+            <t t-foreach="doc.semester_ids.sorted('number')" t-as="sem">
+                <h4 class="mt-3">
+                    <t t-esc="sem.number"/> семестр (<t t-esc="sem.academic_year or ''"/>)
+                </h4>
+                <table class="table table-sm table-bordered">
+                    <thead>
+                        <tr>
+                            <th>№</th>
+                            <th>Дисциплина</th>
+                            <th>Тип</th>
+                            <th class="text-end">Часы</th>
+                            <th class="text-end">ЗЕТ</th>
+                            <th>Форма аттестации</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <t t-set="line"
+                           t-value="[(s, 'mandatory') for s in sem.mandatory_subject_ids] + [(s, 'elective') for s in sem.elective_subject_ids]"/>
+                        <t t-if="not line">
+                            <tr>
+                                <td colspan="6" class="text-muted fst-italic">Нет дисциплин</td>
+                            </tr>
+                        </t>
+                        <t t-foreach="line" t-as="item">
+                            <t t-set="subj" t-value="item[0]"/>
+                            <t t-set="kind" t-value="item[1]"/>
+                            <t t-set="kind_label" t-value="'Обязательная' if kind == 'mandatory' else 'По выбору'"/>
+                            <t t-set="kind_cls"
+                               t-value="'badge text-bg-primary' if kind == 'mandatory' else 'badge text-bg-info'"/>
+                            <tr>
+                                <td><t t-esc="item_index + 1"/></td>
+                                <td><t t-esc="subj.name or ''"/></td>
+                                <td><span t-att-class="kind_cls" t-esc="kind_label"/></td>
+                                <td class="text-end"><t t-esc="int(subj.hours or 0)"/></td>
+                                <td class="text-end"><t t-esc="int(subj.credits or 0)"/></td>
+                                <td><t t-esc="control_map.get(subj.control, subj.control or '')"/></td>
+                            </tr>
+                        </t>
+                        <tr class="table-secondary fw-bold">
+                            <td colspan="4" class="text-end">Итого за семестр:</td>
+                            <td class="text-end"><t t-esc="'%g' % (sem.zet_total or 0)"/></td>
+                            <td/>
+                        </tr>
+                    </tbody>
+                </table>
+            </t>
+            <div class="alert alert-primary mt-3 fw-bold">
+                Всего ЗЕТ по плану: <t t-esc="'%g' % (doc.total_zet or 0)"/>
+            </div>
+        </t>
+    </template>
+</odoo>

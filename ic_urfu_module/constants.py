@@ -60,6 +60,12 @@ MAX_CREDITS = 10
 # Зачётные единицы (ЗЕТ): соответствие аудиторных часов и ЗЕТ задаётся в настройках (ic_urfu.hours_per_zet).
 DEFAULT_HOURS_PER_ZET = 12
 
+# Длительность семестра в неделях — используется для расчёта средней недельной нагрузки.
+WEEKS_PER_SEMESTER = 18
+
+# Допустимое отклонение (в ЗЕТ) общей суммы плана от глобальной нормы; при превышении выдаётся warning.
+PLAN_TOTAL_ZET_TOLERANCE = 5
+
 # Default Values
 DEFAULT_HOURS = 34
 DEFAULT_CREDITS = 3

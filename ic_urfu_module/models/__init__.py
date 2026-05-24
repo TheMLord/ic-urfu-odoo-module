@@ -1,3 +1,3 @@
-from . import ic_urfu, ic_urfu_config
+from . import ic_urfu_config, plan, program_template, semester, subject
 
-__all__ = ["ic_urfu", "ic_urfu_config"]
+__all__ = ["ic_urfu_config", "plan", "program_template", "semester", "subject"]
