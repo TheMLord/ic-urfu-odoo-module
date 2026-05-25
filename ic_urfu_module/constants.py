@@ -57,6 +57,9 @@ MAX_HOURS = 200
 MIN_CREDITS = 1
 MAX_CREDITS = 10
 
+# Зачётные единицы (ЗЕТ): соответствие аудиторных часов и ЗЕТ задаётся в настройках (ic_urfu.hours_per_zet).
+DEFAULT_HOURS_PER_ZET = 12
+
 # Default Values
 DEFAULT_HOURS = 34
 DEFAULT_CREDITS = 3

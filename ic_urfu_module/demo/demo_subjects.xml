@@ -106,5 +106,25 @@
             <field name="control">exam</field>
             <field name="subject_type">elective</field>
         </record>
+
+        <!-- Модульный спецкурс: часть 2 перед частью 1 из-за ссылки next_module_id -->
+        <record id="subject_modular_ml_p2" model="ic.urfu.subject">
+            <field name="name">Продвинутое машинное обучение — модуль 2</field>
+            <field name="hours">36</field>
+            <field name="credits">3</field>
+            <field name="control">exam</field>
+            <field name="subject_type">elective</field>
+            <field name="is_modular">True</field>
+        </record>
+
+        <record id="subject_modular_ml_p1" model="ic.urfu.subject">
+            <field name="name">Продвинутое машинное обучение — модуль 1</field>
+            <field name="hours">36</field>
+            <field name="credits">3</field>
+            <field name="control">exam</field>
+            <field name="subject_type">elective</field>
+            <field name="is_modular">True</field>
+            <field name="next_module_id" ref="subject_modular_ml_p2"/>
+        </record>
     </data>
 </odoo>

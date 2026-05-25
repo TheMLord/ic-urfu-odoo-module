@@ -17,21 +17,21 @@
                             <div class="col-12 col-lg-6 o_setting_box">
                                 <div class="o_setting_left_pane"/>
                                 <div class="o_setting_right_pane">
-                                    <label for="default_document_font"/>
+                                    <label for="document_font"/>
                                     <div class="text-muted">
                                         Шрифт для генерируемых документов DOCX
                                     </div>
-                                    <field name="default_document_font" class="o_light_label"/>
+                                    <field name="document_font" class="o_light_label"/>
                                 </div>
                             </div>
                             <div class="col-12 col-lg-6 o_setting_box">
                                 <div class="o_setting_left_pane"/>
                                 <div class="o_setting_right_pane">
-                                    <label for="default_document_font_size"/>
+                                    <label for="document_font_size"/>
                                     <div class="text-muted">
                                         Размер шрифта документа в пунктах
                                     </div>
-                                    <field name="default_document_font_size" class="o_light_label"/>
+                                    <field name="document_font_size" class="o_light_label"/>
                                 </div>
                             </div>
                         </div>
@@ -43,31 +43,31 @@
                             <div class="col-12 col-lg-6 o_setting_box">
                                 <div class="o_setting_left_pane"/>
                                 <div class="o_setting_right_pane">
-                                    <label for="default_hours"/>
+                                    <label for="subject_hours"/>
                                     <div class="text-muted">
                                         Объем аудиторной работы по умолчанию для новых дисциплин
                                     </div>
-                                    <field name="default_hours" class="o_light_label"/>
+                                    <field name="subject_hours" class="o_light_label"/>
                                 </div>
                             </div>
                             <div class="col-12 col-lg-6 o_setting_box">
                                 <div class="o_setting_left_pane"/>
                                 <div class="o_setting_right_pane">
-                                    <label for="default_credits"/>
+                                    <label for="subject_credits"/>
                                     <div class="text-muted">
                                         Количество ЗЕТ по умолчанию для новых дисциплин
                                     </div>
-                                    <field name="default_credits" class="o_light_label"/>
+                                    <field name="subject_credits" class="o_light_label"/>
                                 </div>
                             </div>
                             <div class="col-12 col-lg-6 o_setting_box">
                                 <div class="o_setting_left_pane"/>
                                 <div class="o_setting_right_pane">
-                                    <label for="default_control_form"/>
+                                    <label for="subject_control_form"/>
                                     <div class="text-muted">
                                         Форма аттестации по умолчанию
                                     </div>
-                                    <field name="default_control_form" class="o_light_label"/>
+                                    <field name="subject_control_form" class="o_light_label"/>
                                 </div>
                             </div>
                         </div>
@@ -79,22 +79,22 @@
                             <div class="col-12 col-lg-6 o_setting_box">
                                 <div class="o_setting_left_pane"/>
                                 <div class="o_setting_right_pane">
-                                    <label for="default_institute"/>
+                                    <label for="plan_institute"/>
                                     <div class="text-muted">
                                         Институт, автоматически подставляется в новые планы
                                     </div>
-                                    <field name="default_institute" class="o_light_label"
+                                    <field name="plan_institute" class="o_light_label"
                                            placeholder="Естественных наук и математики"/>
                                 </div>
                             </div>
                             <div class="col-12 col-lg-6 o_setting_box">
                                 <div class="o_setting_left_pane"/>
                                 <div class="o_setting_right_pane">
-                                    <label for="default_department"/>
+                                    <label for="plan_department"/>
                                     <div class="text-muted">
                                         Кафедра/Департамент по умолчанию
                                     </div>
-                                    <field name="default_department" class="o_light_label"
+                                    <field name="plan_department" class="o_light_label"
                                            placeholder="Школа наук"/>
                                 </div>
                             </div>
@@ -113,6 +113,73 @@
                                     <div class="text-muted">
                                         Отправлять уведомления студентам при изменении статуса плана
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="app_settings_block" data-key="ic_urfu_zet_limits">
+                        <h2>Лимиты ЗЕТ и нагрузки (глобальные)</h2>
+                        <div class="text-muted mb16">
+                            Если у шаблона образовательной программы заданы минимумы ЗЕТ по программе и по семестрам,
+                            при проверке плана используются они. Иначе — значения ниже и норма ЗЕТ по плану.
+                        </div>
+                        <div class="row mt16 o_settings_container">
+                            <div class="col-12 col-lg-6 o_setting_box">
+                                <div class="o_setting_left_pane"/>
+                                <div class="o_setting_right_pane">
+                                    <label for="min_semester_zet"/>
+                                    <div class="text-muted">Минимум суммы ЗЕТ по дисциплинам в одном семестре</div>
+                                    <field name="min_semester_zet" class="o_light_label"/>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6 o_setting_box">
+                                <div class="o_setting_left_pane"/>
+                                <div class="o_setting_right_pane">
+                                    <label for="max_semester_zet"/>
+                                    <div class="text-muted">Максимум суммы ЗЕТ по дисциплинам в одном семестре</div>
+                                    <field name="max_semester_zet" class="o_light_label"/>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6 o_setting_box">
+                                <div class="o_setting_left_pane"/>
+                                <div class="o_setting_right_pane">
+                                    <label for="total_plan_zet"/>
+                                    <div class="text-muted">Целевая сумма ЗЕТ по всему плану (±5 — только предупреждение)</div>
+                                    <field name="total_plan_zet" class="o_light_label"/>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6 o_setting_box">
+                                <div class="o_setting_left_pane"/>
+                                <div class="o_setting_right_pane">
+                                    <label for="max_hours_per_week"/>
+                                    <div class="text-muted">Рекомендуемый потолок ч/нед (ауд. часы семестра / 18)</div>
+                                    <field name="max_hours_per_week" class="o_light_label"/>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6 o_setting_box">
+                                <div class="o_setting_left_pane">
+                                    <field name="enforce_hours_zet"/>
+                                </div>
+                                <div class="o_setting_right_pane">
+                                    <label for="enforce_hours_zet"/>
+                                    <div class="text-muted">Сравнение полей «часы» и «ЗЭТ» у дисциплин с нормой ниже</div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6 o_setting_box">
+                                <div class="o_setting_left_pane"/>
+                                <div class="o_setting_right_pane">
+                                    <label for="hours_per_zet"/>
+                                    <div class="text-muted">Например 36 (часто в нормативных таблицах) или 12 под демо-словарь</div>
+                                    <field name="hours_per_zet" class="o_light_label"/>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6 o_setting_box">
+                                <div class="o_setting_left_pane"/>
+                                <div class="o_setting_right_pane">
+                                    <label for="zet_hours_tolerance"/>
+                                    <div class="text-muted">Сколько ЗЭТ можно «сдвинуть» от расчёта по часам</div>
+                                    <field name="zet_hours_tolerance" class="o_light_label"/>
                                 </div>
                             </div>
                         </div>

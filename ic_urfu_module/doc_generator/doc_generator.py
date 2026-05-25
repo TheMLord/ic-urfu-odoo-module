@@ -2,6 +2,9 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt
 
+# Автогенерация не подставляет персональные ФИО — студент вписывает вручную в DOCX.
+FIO_PLACEHOLDER = "___________________"
+
 
 def create_urfu_plan(data, filename="Individual_Plan.docx"):
     doc = Document()
@@ -39,7 +42,7 @@ def create_urfu_plan(data, filename="Individual_Plan.docx"):
 
     name_p = doc.add_paragraph()
     name_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    name_p.add_run(data["student_name"]).bold = True
+    name_p.add_run(FIO_PLACEHOLDER).bold = True
 
     # 4. ОБЩИЕ СВЕДЕНИЯ (ТАБЛИЦА)
 
@@ -61,6 +64,10 @@ def create_urfu_plan(data, filename="Individual_Plan.docx"):
     add_info_row("Направление научно-исследовательской деятельности", data["research_area"])
     add_info_row("Тема выпускной квалификационной работы", data["thesis_topic"])
     add_info_row("Срок предоставления ВКР к защите", data["deadline"])
+
+    foot_p = doc.add_paragraph()
+    foot_p.add_run("* ФИО студента заполняется собственноручно")
+    foot_p.runs[0].font.size = Pt(10)
 
     doc.add_paragraph()
 
@@ -119,7 +126,7 @@ def create_urfu_plan(data, filename="Individual_Plan.docx"):
     # 6. ПОДПИСИ
     p_sign = doc.add_paragraph()
     p_sign.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    p_sign.add_run(f"Магистрант {data['student_short_name']} ______________")
+    p_sign.add_run(f"Магистрант {FIO_PLACEHOLDER} ______________")
 
     p_date = doc.add_paragraph()
     p_date.alignment = WD_ALIGN_PARAGRAPH.RIGHT
@@ -143,8 +150,8 @@ def create_urfu_plan(data, filename="Individual_Plan.docx"):
 
 # ДАННЫЕ ДЛЯ ТЕСТА
 sample_data = {
-    "student_name": "Гилемшина Рината Ришатовича",
-    "student_short_name": "Р.Р. Гилемшин",
+    "student_name": "",
+    "student_short_name": "",
     "rop_name": "А.А. Кошелев",
     "year": "2025",
     "institute": "Естественных наук и математики",

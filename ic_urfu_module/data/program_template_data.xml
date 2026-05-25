@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Загружается после demo_subjects.xml (см. demo в __manifest__.py) -->
+
+        <!-- 09.03.04 Программная инженерия -->
+        <record id="program_template_software_eng" model="ic.urfu.program.template">
+            <field name="name">Программная инженерия</field>
+            <field name="code">09.03.04</field>
+            <field name="min_total_zet">30</field>
+        </record>
+
+        <record id="semester_template_se_1" model="ic.urfu.semester.template">
+            <field name="program_id" ref="program_template_software_eng"/>
+            <field name="semester_number">1</field>
+            <field name="min_zet">9</field>
+            <field name="subject_ids" eval="[(6, 0, [
+                ref('subject_mandatory_1'),
+                ref('subject_mandatory_2'),
+                ref('subject_mandatory_3'),
+            ])]"/>
+        </record>
+        <record id="semester_template_se_2" model="ic.urfu.semester.template">
+            <field name="program_id" ref="program_template_software_eng"/>
+            <field name="semester_number">2</field>
+            <field name="min_zet">9</field>
+            <field name="subject_ids" eval="[(6, 0, [
+                ref('subject_mandatory_4'),
+                ref('subject_mandatory_5'),
+            ])]"/>
+        </record>
+        <record id="semester_template_se_3" model="ic.urfu.semester.template">
+            <field name="program_id" ref="program_template_software_eng"/>
+            <field name="semester_number">3</field>
+            <field name="min_zet">6</field>
+            <field name="subject_ids" eval="[(6, 0, [ref('subject_mandatory_6')])]"/>
+        </record>
+        <record id="semester_template_se_4" model="ic.urfu.semester.template">
+            <field name="program_id" ref="program_template_software_eng"/>
+            <field name="semester_number">4</field>
+            <field name="min_zet">6</field>
+            <field name="subject_ids" eval="[(6, 0, [ref('subject_mandatory_7')])]"/>
+        </record>
+
+        <!-- 01.03.02 Прикладная математика и информатика -->
+        <record id="program_template_applied_math" model="ic.urfu.program.template">
+            <field name="name">Прикладная математика и информатика</field>
+            <field name="code">01.03.02</field>
+            <field name="min_total_zet">28</field>
+        </record>
+
+        <record id="semester_template_am_1" model="ic.urfu.semester.template">
+            <field name="program_id" ref="program_template_applied_math"/>
+            <field name="semester_number">1</field>
+            <field name="min_zet">7</field>
+            <field name="subject_ids" eval="[(6, 0, [
+                ref('subject_mandatory_1'),
+                ref('subject_mandatory_2'),
+            ])]"/>
+        </record>
+        <record id="semester_template_am_2" model="ic.urfu.semester.template">
+            <field name="program_id" ref="program_template_applied_math"/>
+            <field name="semester_number">2</field>
+            <field name="min_zet">7</field>
+            <field name="subject_ids" eval="[(6, 0, [
+                ref('subject_mandatory_3'),
+                ref('subject_mandatory_4'),
+            ])]"/>
+        </record>
+        <record id="semester_template_am_3" model="ic.urfu.semester.template">
+            <field name="program_id" ref="program_template_applied_math"/>
+            <field name="semester_number">3</field>
+            <field name="min_zet">7</field>
+            <field name="subject_ids" eval="[(6, 0, [
+                ref('subject_mandatory_5'),
+                ref('subject_mandatory_6'),
+            ])]"/>
+        </record>
+        <record id="semester_template_am_4" model="ic.urfu.semester.template">
+            <field name="program_id" ref="program_template_applied_math"/>
+            <field name="semester_number">4</field>
+            <field name="min_zet">7</field>
+            <field name="subject_ids" eval="[(6, 0, [ref('subject_mandatory_7')])]"/>
+        </record>
+    </data>
+</odoo>

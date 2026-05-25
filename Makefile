@@ -56,7 +56,7 @@ init: update-credentials
 # Update credentials (regenerate demo_users.xml from config)
 update-credentials:
 	@echo "Regenerating demo_users.xml from credentials config..."
-	@python3 scripts/generate_demo_users.py
+	@uv run python scripts/generate_demo_users.py
 	@echo ""
 
 # Fix passwords if login fails
@@ -128,7 +128,7 @@ db-status:
 # Test document generator standalone
 test-generator:
 	@echo "Testing document generator..."
-	@cd ic_urfu_module/doc_generator && python3 doc_generator.py
+	@cd ic_urfu_module/doc_generator && uv run python doc_generator.py
 	@echo "✓ Document generated! Check ic_urfu_module/doc_generator/ for output."
 
 # Ruff (requires uv + ruff in project env)

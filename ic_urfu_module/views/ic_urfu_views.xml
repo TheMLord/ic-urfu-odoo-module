@@ -36,6 +36,9 @@
                         <group>
                             <field name="subject_type" widget="radio"/>
                             <field name="control"/>
+                            <field name="is_modular"/>
+                            <field name="next_module_id" invisible="not is_modular"
+                                   options="{'no_create': True}"/>
                         </group>
                         <group>
                             <label for="hours"/>
@@ -48,6 +51,7 @@
                                 <field name="credits"/>
                                 <span>ЗЕТ</span>
                             </div>
+                            <field name="zet_from_hours" readonly="1"/>
                         </group>
                     </group>
                 </sheet>
@@ -126,6 +130,7 @@
                 <field name="student_name"/>
                 <field name="program"/>
                 <field name="year"/>
+                <field name="total_zet" optional="hide"/>
                 <field name="state" widget="badge"
                        decoration-info="state=='draft'"
                        decoration-warning="state=='submitted'"
@@ -275,10 +280,10 @@
                         <field name="student_short_name" readonly="1" class="text-muted"/>
                     </div>
 
-                    <!-- Комментарий преподавателя -->
-                    <div class="alert alert-warning" invisible="not teacher_comment or state not in ['rejected']">
-                        <strong>Комментарий преподавателя:</strong>
-                        <p><field name="teacher_comment" readonly="1" nolabel="1"/></p>
+                    <!-- Комментарий проверяющего при возврате на доработку -->
+                    <div class="alert alert-warning" invisible="not rejection_comment or state != 'rejected'">
+                        <strong>Комментарий проверяющего:</strong>
+                        <field name="rejection_comment" widget="html" readonly="1" nolabel="1"/>
                     </div>
 
                     <group>
@@ -289,6 +294,7 @@
                         </group>
                         <group string="Даты и сроки" icon="fa-calendar">
                             <field name="deadline" placeholder="Май 2027" readonly="state not in ['draft', 'rejected']"/>
+                            <field name="total_zet" readonly="1" string="Всего ЗЕТ по плану"/>
                         </group>
                     </group>
 
@@ -300,6 +306,12 @@
                         <group string="Образовательная программа" icon="fa-graduation-cap">
                             <field name="specialty_code" placeholder="02.04.01" readonly="state not in ['draft', 'rejected']"/>
                             <field name="program" placeholder="Современные проблемы компьютерных наук" readonly="state not in ['draft', 'rejected']"/>
+                            <field name="program_template_id" invisible="state != 'draft'"
+                                   options="{'no_create': True, 'no_create_edit': True}"/>
+                            <button name="action_apply_template" string="Применить шаблон" type="object"
+                                    class="btn-secondary" invisible="state != 'draft'"/>
+                            <button name="action_suggest_next_modules" string="Продолжения модулей" type="object"
+                                    class="btn-secondary" icon="fa-magic" invisible="state != 'draft'"/>
                         </group>
                     </group>
 
@@ -320,6 +332,7 @@
                                 <tree string="Семестры" editable="bottom">
                                     <field name="number" widget="integer" readonly="0" force_save="1" required="1"/>
                                     <field name="academic_year" readonly="0"/>
+                                    <field name="zet_total" readonly="1" optional="show"/>
                                     <field name="mandatory_subject_ids" widget="many2many_tags"
                                            options="{'color_field': 'subject_type', 'no_create': True}"/>
                                     <field name="elective_subject_ids" widget="many2many_tags"
@@ -396,6 +409,10 @@
                                                 </templates>
                                             </kanban>
                                         </field>
+
+                                        <group>
+                                            <field name="zet_total" readonly="1" widget="float" string="Итого ЗЕТ в семестре"/>
+                                        </group>
                                     </sheet>
                                 </form>
                             </field>

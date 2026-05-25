@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Regular data file: student and teacher users (not only Odoo demo mode). -->
+    <!-- Regular data: user records (see __manifest__.py). -->
     <data noupdate="1">
+        <!-- Демо пользователь: Студент -->
         <record id="user_demo_student" model="res.users">
             <field name="name">Иванов Петр Сергеевич</field>
             <field name="login">student</field>
@@ -11,6 +12,7 @@
             <field name="company_id" ref="base.main_company"/>
         </record>
 
+        <!-- Демо пользователь: Преподаватель -->
         <record id="user_demo_teacher" model="res.users">
             <field name="name">Смирнова Анна Викторовна</field>
             <field name="login">teacher</field>

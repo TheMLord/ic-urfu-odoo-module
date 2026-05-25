@@ -29,7 +29,8 @@
                 ref('subject_mandatory_3')
             ])]"/>
             <field name="elective_subject_ids" eval="[(6, 0, [
-                ref('subject_elective_1')
+                ref('subject_elective_1'),
+                ref('subject_modular_ml_p1')
             ])]"/>
         </record>
 
