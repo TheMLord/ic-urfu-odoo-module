@@ -47,7 +47,7 @@ $ make fix-passwords
    Student:  student / student
    Teacher:  teacher / teacher
 
-🌐 URL: http://localhost:8069
+🌐 URL: http://localhost:8079
 ```
 
 ## Альтернативные способы
@@ -108,7 +108,7 @@ make init
 
 ### Всё равно не могу войти
 
-1. Проверь что используешь правильный URL: `http://localhost:8069`
+1. Проверь что используешь правильный URL: `http://localhost:8079`
 2. Проверь что вводишь логин без пробелов: `student` (не `Student`)
 3. Попробуй очистить cookies браузера
 4. Попробуй другой браузер

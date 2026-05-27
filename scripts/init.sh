@@ -95,8 +95,8 @@ docker compose restart odoo
 echo -n "Waiting for Odoo to restart"
 sleep 5
 for i in {1..15}; do
-    if curl -s http://localhost:8069/web/database/selector > /dev/null 2>&1 || \
-       curl -s http://localhost:8069/web/login > /dev/null 2>&1; then
+    if curl -s http://localhost:8079/web/database/selector > /dev/null 2>&1 || \
+       curl -s http://localhost:8079/web/login > /dev/null 2>&1; then
         echo " ✓ Ready!"
         break
     fi
@@ -133,7 +133,7 @@ echo -e "${GREEN}=========================================="
 echo "  ✓ Initialization Complete!"
 echo "==========================================${NC}"
 echo ""
-echo -e "${BLUE}Access Odoo at:${NC} http://localhost:8069"
+echo -e "${BLUE}Access Odoo at:${NC} http://localhost:8079"
 echo ""
 echo -e "${BLUE}Login: use res.users.login (student / teacher), not email:${NC}"
 echo "  ┌────────────────────────────────────────────────────────┐"

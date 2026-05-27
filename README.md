@@ -52,7 +52,7 @@ This will ask for confirmation, then clean everything and reinitialize.
 ### Access the Application
 
 Open your browser and navigate to:
-**http://localhost:8069**
+**http://localhost:8079**
 
 ## 🔐 Demo Accounts
 
@@ -193,8 +193,8 @@ This will generate a sample DOCX file using test data.
 
 ### Environment Details
 
-- **Odoo**: http://localhost:8069
-- **PostgreSQL**: localhost:5432
+- **Odoo**: http://localhost:8079
+- **PostgreSQL**: localhost:2345
   - Database: `odoo`
   - User: `odoo`
   - Password: `odoo`
@@ -247,11 +247,16 @@ make init
 
 ### Port already in use
 
-If port 8069 or 5432 is already in use, edit `local-env/docker-compose.yml` and change the port mappings:
+If port 8079 or 2345 is already in use, edit `local-env/docker-compose.yml` and change the port mappings:
 
 ```yaml
+# odoo service
 ports:
-  - "9069:8069"  # Use port 9069 instead
+  - "9069:8069"  # example: different host port for Odoo (container still 8069)
+
+# db service
+ports:
+  - "3456:5432"  # example: different host port for PostgreSQL
 ```
 
 ### Can't login

@@ -56,7 +56,7 @@ make update-credentials
 Теперь можешь войти с новыми учетными данными:
 
 ```
-http://localhost:8069
+http://localhost:8079
 ```
 
 ## 🎯 Что происходит автоматически
