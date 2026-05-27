@@ -138,7 +138,7 @@ ic-urfu-odoo-module/
 
 - **`docker-compose.yml`:** сервис `db` (PostgreSQL 17), сервис `odoo`.
 - **Сборка образа Odoo для dev:** `build.context` = каталог `local-env/`, **`dockerfile: Dockerfile`** → используется файл **`local-env/Dockerfile`** (Odoo 17 + `python-docx`), а не корневой `Dockerfile`.
-- **Порты:** Odoo `8069`, PostgreSQL `5432`.
+- **Порты:** Odoo на хосте `8079` (внутри контейнера HTTP `8069`), PostgreSQL на хосте `2345` (внутри контейнера `5432`).
 - **Тома:** данные БД и Odoo filestore.
 - **Монтирование:** исходники модуля с хоста: `../ic_urfu_module` → `/mnt/extra-addons/ic_urfu_module`, конфиг `./odoo.conf` → `/etc/odoo/odoo.conf`.
 

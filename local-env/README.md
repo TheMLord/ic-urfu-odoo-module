@@ -24,8 +24,8 @@ docker-compose down -v
 
 ## Доступ
 
-- **Odoo**: http://localhost:8069
-- **PostgreSQL**: localhost:5432
+- **Odoo**: http://localhost:8079
+- **PostgreSQL**: localhost:2345
 - **База данных**: `odoo` (как в `make init` / `scripts/init.sh`)
 
 ## Учетные данные

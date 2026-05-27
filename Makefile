@@ -68,7 +68,7 @@ upgrade-module:
 	@echo "Upgrading ic_urfu_module..."
 	@docker exec odoo_app odoo -c /etc/odoo/odoo.conf -d odoo -u ic_urfu_module --stop-after-init
 	@cd local-env && docker compose restart odoo
-	@echo "✓ Done. Open http://localhost:8069"
+	@echo "✓ Done. Open http://localhost:8079"
 
 # Start containers
 start:
@@ -76,8 +76,8 @@ start:
 	@cd local-env && docker compose up -d
 	@echo "✓ Containers started!"
 	@echo ""
-	@echo "Odoo:       http://localhost:8069"
-	@echo "PostgreSQL: localhost:5432"
+	@echo "Odoo:       http://localhost:8079"
+	@echo "PostgreSQL: localhost:2345"
 	@echo ""
 	@echo "Login: student / student"
 	@echo "       teacher / teacher"
@@ -109,7 +109,7 @@ status:
 	@echo "=================="
 	@docker exec odoo_db pg_isready -U odoo 2>/dev/null && echo "✓ PostgreSQL is ready" || echo "✗ PostgreSQL is not ready"
 	@echo ""
-	@echo "Odoo URL: http://localhost:8069"
+	@echo "Odoo URL: http://localhost:8079"
 
 # Open shell in Odoo container
 shell:

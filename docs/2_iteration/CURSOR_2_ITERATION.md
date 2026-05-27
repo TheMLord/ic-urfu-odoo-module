@@ -631,7 +631,7 @@
       depends_on:
         - db
       ports:
-        - "8069:8069"
+        - "8079:8069"
       environment:
         HOST: db
         USER: ${POSTGRES_USER:-odoo}
