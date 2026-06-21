@@ -95,6 +95,11 @@ class Subject(models.Model):
         default="mandatory",
     )
 
+    semester_number = fields.Integer(
+        string="Номер семестра",
+        help="Номер семестра, в котором читается дисциплина. 0 — не привязана к семестру.",
+    )
+
     is_modular = fields.Boolean(
         string="Модульный спецкурс",
         default=False,
@@ -104,7 +109,7 @@ class Subject(models.Model):
         "ic.urfu.subject",
         string="Следующая часть модуля",
         ondelete="set null",
-        domain="[('subject_type', '=', 'elective'), ('id', '!=', id)]",
+        domain="[('id', '!=', id)]",
     )
     zet_from_hours = fields.Integer(
         string="ЗЕТ по норме часов",
@@ -148,10 +153,6 @@ class Subject(models.Model):
                     )
                 if rec.next_module_id.id == rec.id:
                     raise ValidationError("Дисциплина не может ссылаться на себя как на следующую часть модуля.")
-                if rec.next_module_id.subject_type != "elective":
-                    raise ValidationError("Следующая часть модуля должна быть дисциплиной «По выбору».")
-            if rec.is_modular and rec.subject_type != "elective":
-                raise ValidationError("Модульный спецкурс может быть только дисциплиной по выбору.")
 
 
 class Semester(models.Model):
@@ -250,6 +251,30 @@ class Semester(models.Model):
         for record in self:
             record.name = f"{record.number} семестр ({record.academic_year})"
 
+    @api.onchange("number")
+    def _onchange_number_filter_subjects(self):
+        if self.number:
+            sem = self.number
+            domain_mandatory = [
+                ("subject_type", "=", "mandatory"),
+                "|",
+                ("semester_number", "=", sem),
+                ("semester_number", "=", 0),
+            ]
+            domain_elective = [
+                ("subject_type", "=", "elective"),
+                "|",
+                ("semester_number", "=", sem),
+                ("semester_number", "=", 0),
+            ]
+        else:
+            domain_mandatory = [("subject_type", "=", "mandatory")]
+            domain_elective = [("subject_type", "=", "elective")]
+        return {
+            "mandatory_subject_ids": {"domain": domain_mandatory},
+            "elective_subject_ids": {"domain": domain_elective},
+        }
+
 
 class IndividualPlan(models.Model):
     """Individual Education Plan model for master's students.
@@ -282,8 +307,8 @@ class IndividualPlan(models.Model):
         [
             ("draft", "Черновик"),
             ("submitted", "На проверке"),
-            ("approved", "Одобрено"),
             ("rejected", "Отклонено"),
+            ("approved", "Одобрено"),
             ("generated", "Документ создан"),
         ],
         string="Статус",
@@ -599,7 +624,10 @@ class IndividualPlan(models.Model):
                 present = next_sem.mandatory_subject_ids | next_sem.elective_subject_ids
                 if next_subj in present:
                     continue
-                next_sem.write({"elective_subject_ids": [(4, next_subj.id)]})
+                if next_subj.subject_type == "mandatory":
+                    next_sem.write({"mandatory_subject_ids": [(4, next_subj.id)]})
+                else:
+                    next_sem.write({"elective_subject_ids": [(4, next_subj.id)]})
                 suggested.append(f"Семестр {next_sem.number}: «{next_subj.name}»")
 
         if suggested:
