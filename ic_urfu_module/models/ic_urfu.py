@@ -103,11 +103,11 @@ class Subject(models.Model):
     is_modular = fields.Boolean(
         string="Модульный спецкурс",
         default=False,
-        help="Цепочка частей курса: следующая часть подставляется в следующий семестр командой на плане.",
+        help="Цепочка частей курса: предыдущая часть подставляется из предыдущего семестра.",
     )
-    next_module_id = fields.Many2one(
+    prev_module_id = fields.Many2one(
         "ic.urfu.subject",
-        string="Следующая часть модуля",
+        string="Предыдущая часть модуля",
         ondelete="set null",
         domain="[('id', '!=', id)]",
     )
@@ -143,16 +143,16 @@ class Subject(models.Model):
         ("name_unique", "unique(name)", "Дисциплина с таким названием уже существует!")
     ]
 
-    @api.constrains("is_modular", "next_module_id", "subject_type")
+    @api.constrains("is_modular", "prev_module_id", "subject_type")
     def _check_modular_chain(self):
         for rec in self:
-            if rec.next_module_id:
+            if rec.prev_module_id:
                 if not rec.is_modular:
                     raise ValidationError(
-                        "Укажите флаг «Модульный спецкурс», если задана следующая часть модуля."
+                        "Укажите флаг «Модульный спецкурс», если задана предыдущая часть модуля."
                     )
-                if rec.next_module_id.id == rec.id:
-                    raise ValidationError("Дисциплина не может ссылаться на себя как на следующую часть модуля.")
+                if rec.prev_module_id.id == rec.id:
+                    raise ValidationError("Дисциплина не может ссылаться на себя как на предыдущую часть модуля.")
 
 
 class Semester(models.Model):
@@ -271,8 +271,10 @@ class Semester(models.Model):
             domain_mandatory = [("subject_type", "=", "mandatory")]
             domain_elective = [("subject_type", "=", "elective")]
         return {
-            "mandatory_subject_ids": {"domain": domain_mandatory},
-            "elective_subject_ids": {"domain": domain_elective},
+            "domain": {
+                "mandatory_subject_ids": domain_mandatory,
+                "elective_subject_ids": domain_elective,
+            }
         }
 
 
@@ -600,43 +602,44 @@ class IndividualPlan(models.Model):
         }
 
     def action_suggest_next_modules(self):
-        """Добавить в следующий семестр дисциплины-продолжения для модульных спецкурсов."""
+        """Добавить в семестр дисциплины-продолжения для модульных спецкурсов."""
         self.ensure_one()
         if self.state != "draft":
             raise UserError("Предложение модулей доступно только для плана в статусе «Черновик».")
 
+        all_subjects = self.env["ic.urfu.subject"].search([("is_modular", "=", True)])
+
         suggested: list[str] = []
-        for sem in self.semester_ids.sorted("number"):
-            line = sem.mandatory_subject_ids | sem.elective_subject_ids
-            modular_subjects = line.filtered(lambda s: s.is_modular and s.next_module_id)
-            if not modular_subjects:
+        for subj in all_subjects:
+            if not subj.prev_module_id or not subj.prev_module_id.exists():
                 continue
-
-            next_sem_recs = self.semester_ids.filtered(lambda s, n=sem.number: s.number == n + 1)
-            if not next_sem_recs:
+            prev_subj = subj.prev_module_id
+            prev_sem_recs = self.semester_ids.filtered(
+                lambda s, ps=prev_subj: (s.mandatory_subject_ids | s.elective_subject_ids) & ps
+            )
+            if not prev_sem_recs:
                 continue
-
-            next_sem = next_sem_recs[0]
-            for subj in modular_subjects:
-                next_subj = subj.next_module_id
-                if not next_subj or not next_subj.exists():
-                    continue
-                present = next_sem.mandatory_subject_ids | next_sem.elective_subject_ids
-                if next_subj in present:
-                    continue
-                if next_subj.subject_type == "mandatory":
-                    next_sem.write({"mandatory_subject_ids": [(4, next_subj.id)]})
-                else:
-                    next_sem.write({"elective_subject_ids": [(4, next_subj.id)]})
-                suggested.append(f"Семестр {next_sem.number}: «{next_subj.name}»")
+            prev_sem_number = prev_sem_recs[0].number
+            target_sem_recs = self.semester_ids.filtered(lambda s, n=prev_sem_number: s.number == n + 1)
+            if not target_sem_recs:
+                continue
+            target_sem = target_sem_recs[0]
+            present = target_sem.mandatory_subject_ids | target_sem.elective_subject_ids
+            if subj in present:
+                continue
+            if subj.subject_type == "mandatory":
+                target_sem.write({"mandatory_subject_ids": [(4, subj.id)]})
+            else:
+                target_sem.write({"elective_subject_ids": [(4, subj.id)]})
+            suggested.append(f"Семестр {target_sem.number}: «{subj.name}»")
 
         if suggested:
             message = "Добавлены продолжения модулей:\n" + "\n".join(f"• {s}" for s in suggested)
             ntype = "success"
         else:
             message = (
-                "Нет цепочек для добавления: задайте у дисциплин «следующую часть модуля» "
-                "или части уже стоят в следующем семестре."
+                "Нет цепочек для добавления: задайте у дисциплин «предыдущую часть модуля» "
+                "или части уже стоят в нужных семестрах."
             )
             ntype = "info"
 

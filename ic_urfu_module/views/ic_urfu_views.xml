@@ -39,7 +39,7 @@
                             <field name="semester_number"/>
                             <field name="control"/>
                             <field name="is_modular"/>
-                            <field name="next_module_id" invisible="not is_modular"
+                            <field name="prev_module_id" invisible="not is_modular"
                                    options="{'no_create': True}"/>
                         </group>
                         <group>
@@ -273,6 +273,9 @@
                     <button name="action_generate_document" string="Сгенерировать документ" type="object"
                             class="btn-success" icon="fa-file-word-o"
                             invisible="state != 'approved'"/>
+                    <button name="action_generate_document" string="Перегенерировать документ" type="object"
+                            class="btn-success" icon="fa-refresh"
+                            invisible="state != 'generated'"/>
 
                     <field name="state" widget="statusbar" statusbar_visible="draft,submitted,rejected,approved,generated"/>
                 </header>
@@ -298,7 +301,8 @@
                     <div class="alert alert-success text-center" invisible="not document_file" style="margin: 10px;">
                         <i class="fa fa-file-word-o fa-3x mb8"/>
                         <h4>Документ сгенерирован!</h4>
-                        <field name="document_file" filename="document_filename" widget="binary" class="btn btn-primary"/>
+                        <field name="document_file" filename="document_filename" widget="binary" class="btn btn-primary"
+                               readonly="state in ['approved', 'generated']"/>
                     </div>
 
                     <div class="oe_title">
@@ -364,8 +368,10 @@
                                     <field name="academic_year" readonly="0"/>
                                     <field name="zet_total" readonly="1" optional="show"/>
                                     <field name="mandatory_subject_ids" widget="many2many_tags"
+                                           domain="[('subject_type', '=', 'mandatory'), '|', ('semester_number', '=', number), ('semester_number', '=', 0)]"
                                            options="{'color_field': 'subject_type', 'no_create': True}"/>
                                     <field name="elective_subject_ids" widget="many2many_tags"
+                                           domain="[('subject_type', '=', 'elective'), '|', ('semester_number', '=', number), ('semester_number', '=', 0)]"
                                            options="{'color_field': 'subject_type', 'no_create': True}"/>
                                 </tree>
                                 <form string="Семестр">
@@ -381,7 +387,8 @@
                                         </group>
 
                                         <separator string="Обязательные дисциплины" icon="fa-book"/>
-                                        <field name="mandatory_subject_ids" nolabel="1">
+                                        <field name="mandatory_subject_ids" nolabel="1"
+                                               domain="[('subject_type', '=', 'mandatory'), '|', ('semester_number', '=', number), ('semester_number', '=', 0)]">
                                             <kanban class="o_kanban_mobile">
                                                 <field name="name"/>
                                                 <field name="hours"/>
@@ -411,7 +418,8 @@
                                         </field>
 
                                         <separator string="Дисциплины по выбору" icon="fa-list-ul"/>
-                                        <field name="elective_subject_ids" nolabel="1">
+                                        <field name="elective_subject_ids" nolabel="1"
+                                               domain="[('subject_type', '=', 'elective'), '|', ('semester_number', '=', number), ('semester_number', '=', 0)]">
                                             <kanban class="o_kanban_mobile">
                                                 <field name="name"/>
                                                 <field name="hours"/>
