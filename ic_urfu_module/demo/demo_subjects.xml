@@ -142,48 +142,5 @@
             <field name="prev_module_id" ref="subject_modular_ml_p1"/>
         </record>
 
-        <!-- Модульный спецкурс a-b-c-d (семестры 1–4) -->
-        <record id="subject_modular_abcd_a" model="ic.urfu.subject">
-            <field name="name">Модульный спецкурс — a</field>
-            <field name="hours">36</field>
-            <field name="credits">3</field>
-            <field name="control">exam</field>
-            <field name="subject_type">mandatory</field>
-            <field name="is_modular">True</field>
-            <field name="semester_number">1</field>
-        </record>
-
-        <record id="subject_modular_abcd_b" model="ic.urfu.subject">
-            <field name="name">Модульный спецкурс — b</field>
-            <field name="hours">36</field>
-            <field name="credits">3</field>
-            <field name="control">exam</field>
-            <field name="subject_type">mandatory</field>
-            <field name="is_modular">True</field>
-            <field name="semester_number">2</field>
-            <field name="prev_module_id" ref="subject_modular_abcd_a"/>
-        </record>
-
-        <record id="subject_modular_abcd_c" model="ic.urfu.subject">
-            <field name="name">Модульный спецкурс — c</field>
-            <field name="hours">36</field>
-            <field name="credits">3</field>
-            <field name="control">exam</field>
-            <field name="subject_type">mandatory</field>
-            <field name="is_modular">True</field>
-            <field name="semester_number">3</field>
-            <field name="prev_module_id" ref="subject_modular_abcd_b"/>
-        </record>
-
-        <record id="subject_modular_abcd_d" model="ic.urfu.subject">
-            <field name="name">Модульный спецкурс — d</field>
-            <field name="hours">36</field>
-            <field name="credits">3</field>
-            <field name="control">exam</field>
-            <field name="subject_type">mandatory</field>
-            <field name="is_modular">True</field>
-            <field name="semester_number">4</field>
-            <field name="prev_module_id" ref="subject_modular_abcd_c"/>
-        </record>
     </data>
 </odoo>

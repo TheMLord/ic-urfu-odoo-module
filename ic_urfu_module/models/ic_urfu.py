@@ -49,7 +49,7 @@ class Subject(models.Model):
     within an individual education plan.
 
     Fields:
-        name: Course name (unique)
+        name: Course name (unique per semester_number)
         hours: Auditorium work hours
         credits: Credit units (ЗЕТ)
         control: Assessment form (exam, credit, graded credit)
@@ -140,7 +140,11 @@ class Subject(models.Model):
                 raise ValidationError("Объем (ЗЕТ) должен быть больше 0!")
 
     _sql_constraints: ClassVar[list[tuple[str, str, str]]] = [
-        ("name_unique", "unique(name)", "Дисциплина с таким названием уже существует!")
+        (
+            "name_semester_unique",
+            "unique(name, semester_number)",
+            "Дисциплина с таким названием уже существует в этом семестре!",
+        )
     ]
 
     @api.constrains("is_modular", "prev_module_id", "subject_type")
@@ -751,7 +755,7 @@ class IndividualPlan(models.Model):
 
     def action_draft(self):
         """Вернуть в черновик"""
-        self.write({"state": "draft", "teacher_comment": False, "rejection_comment": False})
+        self.write({"state": "draft", "teacher_comment": False, "rejection_comment": False, "document_file": False, "document_filename": False})
 
     def unlink(self):
         """Override unlink to restrict deletion based on state.
@@ -798,7 +802,7 @@ class IndividualPlan(models.Model):
         """Генерация документа DOCX"""
         self.ensure_one()
 
-        if self.state != "approved":
+        if self.state not in ("approved", "generated"):
             raise UserError("Документ можно генерировать только для одобренных планов!")
 
         # Валидация данных перед генерацией

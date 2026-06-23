@@ -254,7 +254,7 @@
                             invisible="state not in ['draft', 'rejected']" class="oe_highlight" icon="fa-paper-plane"
                             groups="ic_urfu_module.group_ic_urfu_student"/>
                     <button name="action_draft" string="Вернуть в черновик" type="object"
-                            invisible="state not in ['submitted', 'rejected']"
+                            invisible="state not in ['submitted', 'rejected', 'generated']"
                             groups="ic_urfu_module.group_ic_urfu_student" icon="fa-undo"/>
                     <button name="unlink" string="Удалить" type="object"
                             invisible="state not in ['draft', 'rejected']"
